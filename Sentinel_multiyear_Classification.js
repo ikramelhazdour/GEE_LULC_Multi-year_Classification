@@ -1,11 +1,21 @@
 /*------------------------------------------------------------------
 Authors : Ikram El Hazdour & Michel LePage (IRD/CESBIO)
+Contact : ikram.el_hazdour@ird.fr
 v0: April 16th 2023: first lines with Random Forest
 v1.3: July 07, 2023 : Function for creating input sat data, and monthly combination, random forest, metrics 70/30%, classifications from 2017 to 2023 
 */
 
 var do_interpo=false; // if this variable is true, the times series will be interpolated with Savitsky-Golay.
 var refArea = geometry2; // the area to work on
+ /* ROI COORDINATES (geometry2): 
+  [[-9.090860602921504,31.090140411254595],
+   [-8.478372809952754,31.090140411254595],
+   [-8.478372809952754,31.624889989205034],
+   [-9.090860602921504,31.624889989205034],
+   [-9.090860602921504,31.090140411254595]]]
+*/
+
+
 var MAX_CLOUD_PROBABILITY = 65; 
 // Load the shapefile (ground data)
 var label ='Class2'
@@ -13,14 +23,7 @@ var shapefile = ee.FeatureCollection('projects/ee-ielhazdourced/assets/shapefile
     .filterMetadata(label, 'not_equals', null)
     .filterMetadata('id', 'not_equals', 203)
     .filterMetadata('id', 'not_equals', 204)
-    //.filterMetadata('id', 'not_equals', 207)
-    //.filterMetadata('id', 'not_equals', 198)
-    //.filterMetadata('id', 'not_equals', 189)
-    //.filterMetadata('id', 'not_equals', 188)
-    //.filterMetadata('id', 'not_equals', 197)
-    //.filterMetadata('id', 'not_equals', 192)
-    //.filterMetadata('id', 'not_equals', 183)
-    //.filterMetadata('id', 'not_equals', 205);
+
 var shapefile2021 = ee.FeatureCollection('projects/ee-ielhazdourced/assets/shapefilesCollection/dataset16072023_oneclasse')
     .filterMetadata(label, 'not_equals', null); 
 var perimetre = ee.FeatureCollection('projects/ee-ielhazdourced/assets/shapefilesCollection/PERIMETRE_abainou');
@@ -599,3 +602,4 @@ Map.addLayer(outline, {palette: 'FF0000'}, 'Pasteque');// display specific class
 Map.addLayer(perimetre,{palette: 'FF0000'}, 'abainou');
 
 //-------------------------------------------------------------
+
