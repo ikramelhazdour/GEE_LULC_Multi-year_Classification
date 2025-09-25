@@ -31,7 +31,9 @@ var listYears = ["2023"]; // years to process with Sentinel-2
 //"2018","2019","2020","2021","2022","2023"
 Map.setOptions("HYBRID");
 
-//********************************************F U N C T I O N****************************************************
+//*********************************************************************************
+//=======================1. CLOUD AND SHADOW MASKING==============================
+//*********************************************************************************
   function maskClouds(img) {
     var clouds = ee.Image(img.get('cloud_mask')).select('probability');
     var isNotCloud = clouds.lt(MAX_CLOUD_PROBABILITY);
@@ -128,46 +130,12 @@ var chart = ui.Chart.feature.byFeature(
    pointSize: 3
  });
 print(chart, "chart cloudyyy");
-  //*********************GLCM Texture*************************
-  //===function==
-  /*function calculateGLCM(image, neighborhood, direction) {
-  // Convert the image to grayscale
-  var gray = image.reduce(ee.Reducer.mean());
 
-  // Calculate the GLCM using the gray image
-  var glcm = gray.glcmTexture({
-    size: neighborhood,
-    distance: 1,
-    direction: direction,
-  });
 
-  // Get the GLCM texture features
-  var contrast = glcm.select('contrast');
-  var dissimilarity = glcm.select('dissimilarity');
-  var homogeneity = glcm.select('homogeneity');
-  var energy = glcm.select('energy');
-  var correlation = glcm.select('correlation');
 
-  // Return the texture features as an image
-  return ee.Image.cat([
-    contrast.rename('contrast'),
-    dissimilarity.rename('dissimilarity'),
-    homogeneity.rename('homogeneity'),
-    energy.rename('energy'),
-    correlation.rename('correlation'),
-  ]);
- }
-//====endFunction
-//Application of GLCM to the image collection
-  var glcmTexture = calculateGLCM(s2Sr, 3, 0); // Example: neighborhood = 3, direction = 0
-  s2Sr = s2Sr.addBands(glcmTexture);
-  // Select the desired bands for classification
-  s2Sr =s2Sr.select(['B2', 'B3', 'B4', 'B5', 'B6', 'B7', 'B8', 'B11', 'B12', 'NDVI','NDWI', 'dissimilarity','homogeneity','energy', 'correlation']);
-  */
-  //================================================================
-  
-  
-  //-----------------------------------------------INTERPOLATION--------------------------------------------
+//*********************************************************************************
+//===========================2.  INTERPOLATION ====================================
+//*********************************************************************************
 
   if (do_interpo === true) {
    
@@ -250,7 +218,10 @@ print(chart, "chart cloudyyy");
   
   /* Create median, maximum, and minimum composites from the image collections===================================
   =============================================================================================================*/
-  
+     
+//*********************************************************************************
+//===============================3. FEATURE STACK =================================
+//*********************************************************************************
   var combined = ee.Image.cat([
     s2Sr.filterDate(year+"-01-01", year+"-02-15").select(bands).reduce('median', 8),
     s2Sr.filterDate(year+"-02-15", year+"-04-01").select(bands).reduce('median', 8),
@@ -264,8 +235,11 @@ print(chart, "chart cloudyyy");
 
   return(combined);
   } // fin de la fonction combiner()
-  
-  //*********************************************END FUNCTION*************************************************
+
+
+//*********************************************************************************
+//=============================== 4. SAMPLING =====================================
+//*********************************************************************************
 
 //================CLASSIF FOR 2023=====================
 
@@ -323,7 +297,13 @@ var ttt= classes.map(function(classe) {
   testSet = testSet.merge(thisTest);
   return(1);
   });
-  
+
+
+
+//*********************************************************************************
+//===============================5. RANDOM FOREST TRAINING ========================
+//*********************************************************************************
+
 // -------------------------------------------
 // Train and Test the Random Forest classifier
 // -------------------------------------------
@@ -338,10 +318,13 @@ var classifier = ee.Classifier.smileRandomForest(50).train({
 print('==classifier', classifier);
 //var classified = combined.classify(classifier);
 
+//*********************************************************************************
+//===============================6. ACCURACY ASSESSMENT ===========================
+//*********************************************************************************
 
 //=========================================================
 // ------------------------------------------------
-// METRICS
+//                      METRICS
 // ------------------------------------------------
 //=======SENTINEL-2============================================
 var confusionMatrix  = classifier.confusionMatrix();
@@ -401,6 +384,11 @@ var chart2 = ui.Chart.feature.byProperty({
   })
 print(chart2, 'Relative Importance')
 
+
+//*****************************************************************************************
+//===============================7. CLASSIFICATION 2023--> 2017 ===========================
+//*****************************************************************************************
+
 //============================CLASSIF 2023,2022,2021,2020,2019,2018,2017...===========================================
 //=======SENTINEL-2==============================
 
@@ -420,6 +408,9 @@ var classified2018 = combined.classify(classifier);
 var classified2017 = combined.classify(classifier);
 */
 
+//*********************************************************************************
+//===============================7. VISUALISATION ===========================
+//*********************************************************************************
 // Map the classified imageS==========================================
 //Define visualization
 var landcoverPalette = [
@@ -438,12 +429,7 @@ var landcoverPalette = [
   'grey'
 ];
 Map.addLayer(classified2023, {palette: landcoverPalette, min:0, max:12}, 'classification map 2023');
-//Map.addLayer(classified2022.mask(classified2022.neq(1)).clip(refArea), {palette: landcoverPalette, min:0, max:12}, 'classification map 2022');
-//Map.addLayer(classified2021.clip(refArea), {palette: landcoverPalette, min:0, max:12}, 'classification map 2021');
-//Map.addLayer(classified2020.mask(classified2021.neq(1)).clip(refArea), {palette: landcoverPalette, min:0, max:12}, 'classification map 2020');
-//Map.addLayer(classified2019.mask(classified2021.neq(1)).clip(refArea), {palette: landcoverPalette, min:0, max:12}, 'classification map 2019');
-//Map.addLayer(classified2019.clip(refArea), {palette: landcoverPalette, min:0, max:12}, 'classification map 2018');
-//Map.addLayer(classified2017.mask(classified2021.neq(1)).clip(refArea), {palette: landcoverPalette, min:0, max:12}, 'classification map 2017');
+
 
 //------------------------------------------------------------------------------------------
 // Define the legend
@@ -501,6 +487,11 @@ for (var i = 0; i < legendLabels.length; i++) {
 // Add legend to the map
 Map.add(legend);
 
+
+
+//*********************************************************************************
+//============================8. EXPORT MAPS AS GEOTIFF ===========================
+//*********************************************************************************
 //--------------------------------------------------------------------------------------
 // Export the classified image as a GeoTIFF
 //2023
@@ -602,4 +593,5 @@ Map.addLayer(outline, {palette: 'FF0000'}, 'Pasteque');// display specific class
 Map.addLayer(perimetre,{palette: 'FF0000'}, 'abainou');
 
 //-------------------------------------------------------------
+
 
