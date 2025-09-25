@@ -1,16 +1,20 @@
 /*------------------------------------------------------------------
-Authors Ikram El Hazdour & Michel LePage (IRD/CESBIO)
+Authors: Ikram El Hazdour & Michel LePage (IRD/CESBIO)
+Contact: ikram.el_hazdour@ird.fr
 v0: April 16th 2023: first lines with Random Forest
 v1.3: July 07, 2023 : Function for creating input sat data, and monthly combination, random forest, metrics 70/30%, classifications from 2017 to 2023 
 */
 
 var do_interpo=true; // if this variable is true, the times series will be interpolated with Savitsky-Golay.
 var refArea = geometry2; // the area to work on
+ /* ROI COORDINATES (geometry2): 
+  [[-9.090860602921504,31.090140411254595],
+   [-8.478372809952754,31.090140411254595],
+   [-8.478372809952754,31.624889989205034],
+   [-9.090860602921504,31.624889989205034],
+   [-9.090860602921504,31.090140411254595]]]
+   */
 var MAX_CLOUD_PROBABILITY = 65;
-print(ee.ImageCollection("LANDSAT/LT05/C02/T1_L2").filterBounds(refArea).filterDate("2016-01-01", "2016-11-01" ), "L5 2023")
-print(ee.ImageCollection("LANDSAT/LE07/C02/T1_L2").filterBounds(refArea).filterDate("2016-01-01", "2016-11-01" ), "L7 2023")
-print(ee.ImageCollection("LANDSAT/LC08/C02/T1_L2").filterBounds(refArea).filterDate("2016-01-01", "2016-11-01" ), "L8 2023")
-print(ee.ImageCollection("LANDSAT/LC09/C02/T1_L2").filterBounds(refArea).filterDate("2016-01-01", "2016-11-01" ), "L9 2023")
 
 // Load the shapefile (ground data)
 var label ='Class2'
@@ -29,7 +33,11 @@ var listYears = ["1999","2000","2001","2002","2003","2004","2005","2006","2007",
 Map.setOptions("HYBRID");
 
 
-  //*************************FUNCTION FOR LANDSTA-5,8,9**************************************
+//*********************************************************************************
+//=======================1. CLOUD AND SHADOW MASKING==============================
+//*********************************************************************************
+
+//FUNCTION FOR LANDSTA-5,8,9
 //For interpo
 print(ee.Number.parse("2023").add(-1).format("%d"));
 function combinerL8(year) {
@@ -37,8 +45,7 @@ function combinerL8(year) {
   var START_DATE = year_before.cat("-12-01");
   var END_DATE = year + "-11-01";
   
-  //====APPLY CLOUD MASK TO THE LANDSAT COLLECTION + MERGE L5-8-9=====
-  
+  //APPLY CLOUD MASK TO THE LANDSAT COLLECTION + MERGE L5-8-9
   //** Scale factors
 function applyScaleFactors(image) {
   var opticalBands = image.select('SR_B.').multiply(0.0000275).add(-0.2);
@@ -187,8 +194,10 @@ l5l8l9 = l5l8l9.map(function(image) {
 });
 
   print("l5l8l9=====",l5l8l9);
-  //=======================
-  // ***********************CLOUD COVER PERCENTAGE*********************
+
+//*********************************************************************************
+//=========================== CLOUD COVER PERCENTAGE ==============================
+//*********************************************************************************
   
   // Function to calculate cloud metrics for Landsat
 function calculateCloudMetrics(img) {
@@ -212,7 +221,7 @@ function calculateCloudMetrics(img) {
   var stats = cloudMask.reduceRegion({
     reducer: ee.Reducer.mean(),
     geometry: refArea,
-    scale: 30, // Landsat resolution
+    scale: 30, 
     bestEffort: true,
     maxPixels: 1e9
   });
@@ -229,14 +238,14 @@ function calculateCloudMetrics(img) {
     'date': img.date().format('YYYY-MM-dd')
   });
 }
-
-// Main function to compute cloud statistics for Landsat
+//*********************************************************************************
+//==========================  CLOUD STATS FUNCTION ================================
+//*********************************************************************************
 function computeLandsatCloudStats(year) {
   var year_before = ee.Number.parse(year).add(-1).format("%d");
   var START_DATE = year_before.cat("-12-01");
   var END_DATE = year + "-11-01";
   
-  // Load and merge Landsat collections
   var l5 = ee.ImageCollection("LANDSAT/LT05/C02/T1_L2")
     .filterBounds(refArea).filterDate(START_DATE, END_DATE);
   var l7 = ee.ImageCollection("LANDSAT/LE07/C02/T1_L2")
@@ -247,14 +256,12 @@ function computeLandsatCloudStats(year) {
     .filterBounds(refArea).filterDate(START_DATE, END_DATE);
   
   var merged = l5.merge(l7).merge(l8).merge(l9);
-  
-  // Calculate cloud metrics
+
   var withMetrics = merged.map(calculateCloudMetrics);
   
   // Count cloud-free images
   var cloudFree = withMetrics.filter(ee.Filter.eq('is_cloud_free', 1));
   
-  // Compute statistics
   var stats = {
     total_images: withMetrics.size(),
     cloud_free_images: cloudFree.size(),
@@ -267,16 +274,16 @@ function computeLandsatCloudStats(year) {
   return stats;
 }
 
-// Example usage for 2016
-var stats2016 = computeLandsatCloudStats("2000");
+var stats = computeLandsatCloudStats("2000");
 
-// Print results
-print('Cloud Analysis for 2016');
-print('Total images:', stats2016.total_images);
-print('Cloud-free images:', stats2016.cloud_free_images);
-print('Cloud-free ratio (%):', stats2016.cloud_free_ratio);
-print('Mean cloud coverage (%):', stats2016.mean_cloud_pct);
-  //-----------------------------------------------INTERPOLATION--------------------------------------------
+print('Total images:', stats.total_images);
+print('Cloud-free images:', stats.cloud_free_images);
+print('Cloud-free ratio (%):', stats.cloud_free_ratio);
+print('Mean cloud coverage (%):', stats.mean_cloud_pct);
+
+//*********************************************************************************
+//===============================2. INTERPOLATION==================================
+//*********************************************************************************
   if (do_interpo === true) {
    
     var oeel=require('users/OEEL/lib:loadAll');
@@ -307,7 +314,11 @@ print('Mean cloud coverage (%):', stats2016.mean_cloud_pct);
   Map.addLayer(mean_janL8, { bands: rgbL8, min: 0, max: 0.5 }, 'L8 Jan '+year,false); //Landsat 8
   var mean_juneL8 =l5l8l9.select(rgbL8).filterDate(year+'-06-01', year+'-07-01').mean();//Landsat 8
   Map.addLayer(mean_juneL8, { bands: rgbL8, min: 0, max: 0.5 }, 'L8 June '+year,false);//Landsat 8
-*/                                                                                                                                                                                                                                                     
+*/    
+    
+//*********************************************************************************
+//===============================3. FEATURE STACK =================================
+//*********************************************************************************
  var combinedL8 = ee.Image.cat([
     l5l8l9.filterDate(year+"-01-01", year+"-02-15").select(bandsL8).reduce('median', 8),
     l5l8l9.filterDate(year+"-02-15", year+"-04-01").select(bandsL8).reduce('median', 8),
@@ -321,22 +332,27 @@ print('Mean cloud coverage (%):', stats2016.mean_cloud_pct);
   return(combinedL8)
   } // fin de la fonction combinerL8()  
   
-  //*********************************************END FUNCTION FOR LANDSAT*************************************************
+//*********************************************END FUNCTIONS FOR LANDSAT*************************************************
  
+
+//*********************************************************************************
+//=============================== 4. SAMPLING =====================================
+//*********************************************************************************
+
 //================CLASSIF FOR 2023=====================
 
-// -------------------
+// --------------------------
 // Load Satellite data (L8)
-//--------2023------------
+//-------------------2023---------------------
 var combinedL8 = combinerL8("2023");
-//--------2021------------
+//-------------------2021---------------------
 var combined2021 = combinerL8("2021");
 
-// -------------------
+// -------------------------------------------
 //Create training data (LANDSAT)
-// -------------------
-//===LANDSAT====================================
-//---------2023--------------------------
+// -------------------------------------------
+//****LANDSAT****
+//-------------------2023---------------------
 var trainImageL8 = combinedL8.sampleRegions({
    collection: shapefile,
    properties: [label],
@@ -344,7 +360,7 @@ var trainImageL8 = combinedL8.sampleRegions({
    tileScale :16
 });
 print(trainImageL8.first());
-//------------2021----------------------
+//--------------------2021----------------------
 var trainImage2021 = combined2021.sampleRegions({
    collection: shapefile2021,
    properties: [label],
@@ -373,11 +389,14 @@ var DDD= classes.map(function(classeL8) {
   return(1);
   });
 
+//*********************************************************************************
+//===============================5. RANDOM FOREST TRAINING ========================
+//*********************************************************************************
 
 // -------------------------------------------
 // Train and Test the Random Forest classifier
 // -------------------------------------------
-//===LANDSAT===========================================
+//****LANDSAT****
 var classifierL8 = ee.Classifier.smileRandomForest(50).train({
   features: trainSetL8,
   classProperty: label,
@@ -385,10 +404,13 @@ var classifierL8 = ee.Classifier.smileRandomForest(50).train({
 });
 //var classifiedL8 = combinedL8.classify(classifierL8);
 
+//*********************************************************************************
+//===============================6. ACCURACY ASSESSMENT ===========================
+//*********************************************************************************
 // ------------------------------------------------
 // METRICS
 // ------------------------------------------------
-//=======LANDSAT============================================
+//****LANDSAT****
 var confusionMatrixL8  = classifierL8.confusionMatrix();
 print('Confusion Matrix L8:',confusionMatrixL8);
 
@@ -404,9 +426,11 @@ print('Consumers Accuracy L8:', confusionMatrix2L8.consumersAccuracy());
 print(' Fscore L8:', confusionMatrix2L8.fscore());	
 print('Kappa L8:',confusionMatrix2L8.kappa());
 
-
+//*****************************************************************************************
+//===============================7. CLASSIFICATION 2023--> 2000 ===========================
+//*****************************************************************************************
 //********************************************
-// Classify the Sentinel CompoImage
+// Classify the Landsat CompoImage
 //********************************************
 //===========LANDSAT========================================
 var trainImageL8 = combinedL8.sampleRegions({
@@ -505,6 +529,10 @@ var classified1999_L8 = combinedL8.classify(classifierL8);
 var combinedL8 = combinerL8("1998");
 var classified1998_L8 = combinedL8.classify(classifierL8);
 
+//*********************************************************************************
+//===============================7. VISUALISATION ===========================
+//*********************************************************************************
+
 // Map the classified imageS==========================================
 //Define visualization
 var landcoverPalette = [
@@ -523,17 +551,9 @@ var landcoverPalette = [
   'grey'
 ];
 
-//Map.addLayer(classified2017_L8.clip(refArea), {palette: landcoverPalette, min:0, max:12}, 'classification map 2017 L8');
-Map.addLayer(classified2023_L8.clip(refArea), {palette: landcoverPalette, min:0, max:12}, 'classification map 2023 L8');
-//Map.addLayer(classified2015_L8.mask(classified2015_L8.neq(1)).clip(refArea), {palette: landcoverPalette, min:0, max:12}, 'classification map 2015 L8');
-//Map.addLayer(classified2014_L8.mask(classified2014_L8.neq(1)).clip(refArea), {palette: landcoverPalette, min:0, max:12}, 'classification map 2014 L8');
-//Map.addLayer(classified2013_L8.mask(classified2013_L8.neq(1)).clip(refArea), {palette: landcoverPalette, min:0, max:12}, 'classification map 2013 L8');
-//Map.addLayer(classified2012_L8.mask(classified2012_L8.neq(1)).clip(refArea), {palette: landcoverPalette, min:0, max:12}, 'classification map 2012 L8');
-//Map.addLayer(classified2011_L8.mask(classified2011_L8.neq(1)).clip(refArea), {palette: landcoverPalette, min:0, max:12}, 'classification map 2011');
-//Map.addLayer(classified2010_L8.mask(classified2010_L8.neq(1)).clip(refArea), {palette: landcoverPalette, min:0, max:12}, 'classification map 2010 L8');
 
-//------------------------------------------------------------------------------------------
-// Define the legend
+Map.addLayer(classified2023_L8.clip(refArea), {palette: landcoverPalette, min:0, max:12}, 'classification map 2023 L8')
+
 var legend = ui.Panel({
   style: {
     position: 'bottom-right',
@@ -541,7 +561,6 @@ var legend = ui.Panel({
   }
 });
 
-// Create and add the legend title
 var legendTitle = ui.Label({
   value: 'Land Cover Classes',
   style: {
@@ -557,7 +576,6 @@ legend.add(legendTitle);
 var legendLabels = ['Vigne', 'Sol nu', 'Petit Pois', 'Olivier', 'double-crop', 'Luzerne', 'Feve', 'Cereale', 'Agrume', 'Abricotier','Melon-Pasteque','Eau','Cereale-carte'];
 var landpalette = ['blue', 'beige', 'yellow', 'green', 'cyan', 'red', 'brown', 'pink', 'orange', 'purple','magenta','black','grey'];
 
-// Add legend entries
 for (var i = 0; i < legendLabels.length; i++) {
   var color = landpalette[i];
   var labels = ui.Label({
@@ -571,7 +589,7 @@ for (var i = 0; i < legendLabels.length; i++) {
     }
   });
   
-  // Create and style the colored box for each legend entry
+
   var colorBox = ui.Label({
       style: {
         backgroundColor: color,
@@ -579,16 +597,16 @@ for (var i = 0; i < legendLabels.length; i++) {
         margin: '0'
       }
     });
-  
 
-  // Add the label and colored box to the legend
   legend.add(ui.Panel([colorBox, labels]));
   }
-
-// Add legend to the map
 Map.add(legend);
 
-//--------------------------------------------------------------------------------------
+
+//*********************************************************************************
+//============================8. EXPORT MAPS AS GEOTIFF ===========================
+//*********************************************************************************
+
 // Export the classified image as a GeoTIFF
 //2023
 Export.image.toDrive({
@@ -854,11 +872,6 @@ function ndviHistogram(image) {
   
 }
 
-// You cannot print inside functions that are used with map()
-// It's good to test the function with a single image
-// so you can print and debug
-//print(ndviHistogram(ee.Image(classified2023_L8.first())))
-
 // Map the histogram function over the Sentinel-2 collection
 var ndviHistograms = ee.ImageCollection(classified2023_L8).map(ndviHistogram);
 
@@ -867,4 +880,5 @@ var timeSeries = ee.FeatureCollection(ndviHistograms);
 
 // Suitable for Export as CSV
 print(timeSeries, 'histogram')
+
 */
