@@ -1,4 +1,2 @@
-# GEE_LULC_Multi-year_Classification
-##Object: 
+# GEE_LULC_Multi-year_Classification 
 
-## Process: 
