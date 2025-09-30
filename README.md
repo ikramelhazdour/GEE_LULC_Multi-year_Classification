@@ -45,3 +45,7 @@ This workflow is designed for researchers and practitioners in remote sensing, a
 ## Note
 The unique aspect of this workflow is its ability to leverage a single year's training data to perform classification across multiple years, making it particularly valuable for historical analysis where ground truth data may be limited.
 
+## Citation
+The research paper related to this work will be available soon
+
+
