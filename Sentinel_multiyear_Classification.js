@@ -64,7 +64,7 @@ Map.setOptions("HYBRID");
   ===========================================================================*/
   var s2Sr = ee.ImageCollection('COPERNICUS/S2_SR_HARMONIZED')
     .filterBounds(refArea)
-    .filterDate("2023-01-01", "2023-11-01" )
+    .filterDate(year + "-01-01", year + "-11-01")
     .map(maskEdges)
 print(s2Sr, "total s2 images number 2023")
   // Filter clouds
@@ -593,5 +593,6 @@ Map.addLayer(outline, {palette: 'FF0000'}, 'Pasteque');// display specific class
 Map.addLayer(perimetre,{palette: 'FF0000'}, 'abainou');
 
 //-------------------------------------------------------------
+
 
 
