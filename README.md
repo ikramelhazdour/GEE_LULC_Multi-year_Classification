@@ -46,7 +46,7 @@ This workflow is designed for researchers and practitioners in remote sensing, a
 The unique aspect of this workflow is its ability to leverage a single year's training data to perform classification across multiple years, making it particularly valuable for historical analysis where ground truth data may be limited.
 
 ## Citation
-The research paper related to this work will be available soon.
-The algorithm and dataset are available in Zenodo : https://doi.org/10.5281/zenodo.18669491
+Please cite this work using the research paper: https://www.sciencedirect.com/science/article/pii/S2352938526001679?via%3Dihub#abs0010
+The algorithm and dataset are also available in Zenodo : https://doi.org/10.5281/zenodo.18669491
 
 
